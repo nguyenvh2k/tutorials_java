@@ -1,6 +1,6 @@
-package com.meocoder.method;
+package me.meocoder.method;
 
-import com.meocoder.Cat;
+import me.meocoder.Cat;
 
 import java.lang.reflect.Field;
 
