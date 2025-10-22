@@ -11,8 +11,8 @@
     <modules>
         <module>reflection</module>
         <module>anotation</module>
-        <module>fw_orm</module>
         <module>fw_ioc</module>
+        <module>fw_orm</module>
     </modules>
 
     <properties>
