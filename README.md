@@ -1,4 +1,4 @@
-# 🧠 tutorials_java
+# 🌱 tutorials_java
 
 ![Java](https://img.shields.io/badge/Java-17%2B-orange?logo=java&logoColor=white)
 ![Maven](https://img.shields.io/badge/Maven-3.8%2B-blue?logo=apachemaven)
