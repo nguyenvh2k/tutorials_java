@@ -1,4 +1,4 @@
-package com.meocoder;
+package me.meocoder;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
@@ -16,7 +16,7 @@ public class ReflectClassExample {
     }
 
     public static void getClassInfo() throws ClassNotFoundException {
-        Class<?> aClazz = Class.forName("com.meocoder.Cat");
+        Class<?> aClazz = Class.forName("me.meocoder.Cat");
         System.out.println("Name: " + aClazz.getName());
         System.out.println("Simple Name: " + aClazz.getSimpleName());
 

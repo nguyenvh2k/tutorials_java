@@ -1,4 +1,4 @@
-package com.meocoder;
+package me.meocoder;
 
 public abstract class Animal {
 

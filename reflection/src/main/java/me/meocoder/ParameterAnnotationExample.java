@@ -1,6 +1,6 @@
-package com.meocoder;
+package me.meocoder;
 
-import com.meocoder.anotation.MyColumn;
+import me.meocoder.anotation.MyColumn;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;

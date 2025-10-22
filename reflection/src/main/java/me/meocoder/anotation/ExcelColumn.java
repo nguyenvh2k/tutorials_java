@@ -1,4 +1,4 @@
-package com.meocoder.anotation;
+package me.meocoder.anotation;
 
 import java.lang.annotation.*;
 
