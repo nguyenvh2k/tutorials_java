@@ -44,8 +44,18 @@ public class EntityManager {
         String placeHolder = String.join(",", Collections.nCopies(cols.size(), "?"));
         String sql = "INSERT INTO " + tableName + " (" + colNames + ") VALUES (" + placeHolder + ")";
         System.out.println("[sql] :: " + sql);
-        try (Connection c = getConnection();
-             PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        Connection c = null;
+        boolean isTx = txManager.getConnection() != null;
+        PreparedStatement ps = null;
+        try {
+            c = getConnection();
+            ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            if (!isTx) {
+                // nếu không trong transaction thì tự commit & đóng connection
+                c.commit();
+                c.close();
+            }
+
             int i = 1;
             for (Field f : cols) {
                 f.setAccessible(true);
@@ -62,10 +72,127 @@ public class EntityManager {
                 }
             }
         } catch (Exception e) {
+            if (!isTx && c != null) {
+                try {
+                    c.rollback();
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+            throw new RuntimeException(e);
+        } finally {
+            if (ps != null) {
+                try {
+                    ps.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    public <T> T find(Class<T> cl, Object id) {
+        String table = getTableName(cl);
+        Field idField = findIdField(cl);
+        String idCol = getColumnName(idField);
+        String sql = "SELECT * FROM " + table + " WHERE " + idCol + " = ?";
+        System.out.println("[sql] :: " + sql);
+        try (Connection c = getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setObject(1, id);
+            ResultSet rs = ps.executeQuery();
+            if (!rs.next()) return null;
+            T entity = cl.getDeclaredConstructor().newInstance();
+            ResultSetMetaData md = rs.getMetaData();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                String col = md.getColumnName(i);
+                Object val = rs.getObject(i);
+                Field f = findFieldByColumn(cl, col);
+                if (f != null) {
+                    f.setAccessible(true);
+                    f.set(entity, convertIfNeeded(val, f.getType()));
+                }
+            }
+            return entity;
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
+    public <T> void merge(T entity) {
+        Class<?> cl = entity.getClass();
+        String table = getTableName(cl);
+        Field idField = findIdField(cl);
+
+        if (idField == null) throw new RuntimeException("No @Id for " + cl);
+        List<Field> cols = new ArrayList<>();
+        for (Field f : cl.getDeclaredFields()) {
+            if (f.equals(idField) || f.isSynthetic()) continue;
+            cols.add(f);
+        }
+
+        String setClause = String.join(",", mapNamesForSet(cols));
+        String idCol = getColumnName(idField);
+        String sql = "UPDATE " + table + " SET " + setClause + " WHERE " + idCol + " = ?";
+        System.out.println("[sql] :: " + sql);
+
+        try (Connection c = getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            int i = 1;
+            for (Field f : cols) {
+                f.setAccessible(true);
+                ps.setObject(i++, f.get(entity));
+                idField.setAccessible(true);
+                ps.setObject(i, idField.get(entity));
+                ps.executeUpdate();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <T> void remove(T entity) {
+        Class<?> cl = entity.getClass();
+        String table = getTableName(cl);
+        Field idField = findIdField(cl);
+        String idCol = getColumnName(idField);
+        String sql = "DELETE FROM " + table + " WHERE " + idCol + " = ?";
+        System.out.println("[sql] :: " + sql);
+        try (Connection c = getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            idField.setAccessible(true);
+            ps.setObject(1, idField.get(entity));
+            ps.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <T> List<T> queryList(String sql, Class<T> entityClass, Object... params) {
+        System.out.println("[sql] " + sql);
+        try (Connection c = getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) ps.setObject(i + 1, params[i]);
+            ResultSet rs = ps.executeQuery();
+            List<T> list = new ArrayList<>();
+            ResultSetMetaData md = rs.getMetaData();
+            while (rs.next()) {
+                T entity = entityClass.getDeclaredConstructor().newInstance();
+                for (int i = 1; i <= md.getColumnCount(); i++) {
+                    String col = md.getColumnLabel(i);
+                    Field f = findFieldByColumn(entityClass, col);
+                    if (f != null) {
+                        f.setAccessible(true);
+                        f.set(entity, convertIfNeeded(rs.getObject(i), f.getType()));
+                    }
+                }
+                list.add(entity);
+            }
+            return list;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private Field findIdField(Class<?> cl) {
         for (Field field : cl.getDeclaredFields()) {

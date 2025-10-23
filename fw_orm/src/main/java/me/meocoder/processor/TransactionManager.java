@@ -17,6 +17,8 @@ public class TransactionManager {
         try {
             Connection c = ds.getConnection();
             c.setAutoCommit(false);
+            // luu connection vao thread local hien tai
+            holder.set(c);
             System.out.println("[tx] begin - conn= " + c);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -29,7 +31,7 @@ public class TransactionManager {
 
     public void commit() {
         Connection c = holder.get();
-        if (c != null) return;
+        if (c == null) return;
         try {
             c.commit();
             System.out.println("[tx] commit - conn= " + c);
@@ -43,7 +45,7 @@ public class TransactionManager {
 
     public void rollback() {
         Connection c = holder.get();
-        if (c != null) return;
+        if (c == null) return;
         try {
             c.rollback();
             System.out.println("[tx] rollback - conn= " + c);
